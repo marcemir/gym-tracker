@@ -1,13 +1,23 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('🎪 DOM Content Loaded event fired');
+
     // --- DOM Elements ---
     const app = document.getElementById('app');
     const splashScreen = document.getElementById('splash-screen');
+
+    console.log('🔍 Elementos principales:', { app: !!app, splashScreen: !!splashScreen });
 
     const views = {
         routines: document.getElementById('routines-view'),
         routineForm: document.getElementById('routine-form-view'),
         workoutSession: document.getElementById('workout-session-view'),
     };
+
+    console.log('👁️ Vistas encontradas:', {
+        routines: !!views.routines,
+        routineForm: !!views.routineForm,
+        workoutSession: !!views.workoutSession
+    });
 
     // Buttons
     const createRoutineFab = document.getElementById('create-routine-fab');
@@ -29,7 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
         name: document.getElementById('session-routine-name'),
         date: document.getElementById('session-date'),
     };
-    const sessionExercisesContainer = document.getElementById('session-exercises-container');
+    const sessionTabsContainer = document.getElementById('session-tabs-container');
+    const sessionContentContainer = document.getElementById('session-content-container');
 
     // Confirmation Modal
     const confirmationModalContainer = document.getElementById('confirmation-modal-container');
@@ -42,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- State Management ---
     let state = { routines: [], history: [] };
+    let currentSessionState = {};
 
     const loadState = () => {
         const savedState = localStorage.getItem('gymTrackerState');
@@ -63,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- View Navigation ---
     const showView = (viewName) => {
-        Object.values(views).forEach(view => view?.classList.remove('active'));
+        Object.values(views).forEach(view => view && view.classList.remove('active'));
         const viewToShow = views[viewName];
         if (viewToShow) {
             viewToShow.classList.add('active');
@@ -78,11 +90,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Modal Logic ---
     const showConfirmationModal = (config) => {
         if (!confirmationModalContainer || !confirmationTitle || !confirmationMessage || !confirmActionBtn) return;
+
         confirmationTitle.textContent = config.title;
         confirmationMessage.textContent = config.message;
         confirmActionBtn.textContent = config.confirmText;
+
         confirmActionBtn.className = 'py-3 px-6 font-bold rounded-lg text-white transition-colors'; // Reset
         confirmActionBtn.classList.add(...config.confirmClasses);
+
         confirmActionCallback = config.onConfirm;
         confirmationModalContainer.classList.remove('hidden');
         confirmActionBtn.focus();
@@ -189,77 +204,263 @@ document.addEventListener('DOMContentLoaded', () => {
         routineNameInput.value = routine.name;
         routineNameInput.classList.remove('border-red-500');
         exercisesContainer.innerHTML = '';
-        routine.exercises.forEach(ex => addExerciseInput(ex.name, ex.sets));
+        routine.exercises.forEach((ex) => addExerciseInput(ex.name, ex.sets));
         saveRoutineBtn.textContent = 'Actualizar Rutina';
         showView('routineForm');
     };
 
-    const renderWorkoutSession = (routineId) => {
-        const routine = state.routines.find(r => r.id === routineId);
-        if (!routine || !app || !sessionInfo.name || !sessionInfo.date || !sessionExercisesContainer) return;
+    // --- Session History Functions ---
 
-        app.dataset.currentRoutineId = String(routineId);
-        sessionInfo.name.textContent = routine.name;
-        sessionInfo.date.textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const loadSessions = (routineId) => {
+        const key = `sessions_${routineId}`;
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : [];
+        } catch (e) {
+            console.error("Error loading sessions from localStorage", e);
+            return [];
+        }
+    };
 
-        sessionExercisesContainer.innerHTML = '';
+    const saveSession = (routineId, newSession) => {
+        const sessions = loadSessions(routineId);
+        sessions.unshift(newSession);
+        const key = `sessions_${routineId}`;
+        localStorage.setItem(key, JSON.stringify(sessions));
+    };
+
+    const deleteSession = (routineId, sessionId) => {
+        let sessions = loadSessions(routineId);
+        sessions = sessions.filter(s => s.session_id !== sessionId);
+        const key = `sessions_${routineId}`;
+        localStorage.setItem(key, JSON.stringify(sessions));
+
+        state.history = state.history.filter(s => s.session_id !== sessionId);
+        saveState();
+    };
+
+    const renderSessionTabs = (routineId, sessions, { limit = 4 } = {}) => {
+        if (!sessionTabsContainer) return;
+        sessionTabsContainer.innerHTML = '';
         const fragment = document.createDocumentFragment();
 
-        routine.exercises.forEach((exercise, exerciseIndex) => {
+        const todayTab = document.createElement('button');
+        todayTab.className = 'session-tab';
+        todayTab.textContent = 'Hoy';
+        todayTab.setAttribute('role', 'tab');
+        todayTab.setAttribute('aria-selected', 'true');
+        todayTab.dataset.sessionId = 'today';
+        fragment.appendChild(todayTab);
+
+        sessions.slice(0, limit).forEach(session => {
+            const date = new Date(session.date);
+            const dateString = date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+
+            const tab = document.createElement('button');
+            tab.className = 'session-tab';
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-selected', 'false');
+            tab.dataset.sessionId = session.session_id;
+
+            const dateSpan = document.createElement('span');
+            dateSpan.textContent = dateString;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'session-tab-delete-btn';
+            deleteBtn.dataset.sessionId = session.session_id;
+            deleteBtn.setAttribute('aria-label', `Eliminar sesión del ${dateString}`);
+            deleteBtn.innerHTML = `<svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+
+            tab.appendChild(dateSpan);
+            tab.appendChild(deleteBtn);
+            fragment.appendChild(tab);
+        });
+
+        sessionTabsContainer.appendChild(fragment);
+    };
+
+    const renderSessionBlock = (sessionData, { editable, prefillData = null }) => {
+        if (!sessionContentContainer) return;
+        sessionContentContainer.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
+        const exercises = editable ? sessionData.exercises : sessionData.workoutData;
+
+        if (!exercises || exercises.length === 0) {
+            sessionContentContainer.innerHTML = `<p class="text-center text-gray-400">No se encontraron ejercicios.</p>`;
+            return;
+        }
+
+        exercises.forEach((exercise) => {
+            const exerciseName = editable ? exercise.name : exercise.exerciseName;
+
             const exerciseCard = document.createElement('div');
             exerciseCard.className = 'bg-gray-800 p-5 rounded-xl';
-            exerciseCard.dataset.exerciseName = exercise.name;
+            exerciseCard.dataset.exerciseName = exerciseName;
 
             const title = document.createElement('h4');
             title.className = 'text-xl font-bold mb-4 text-yellow-400 tracking-wide';
-            title.textContent = exercise.name;
+            title.textContent = exerciseName;
             exerciseCard.appendChild(title);
 
             const headerRow = document.createElement('div');
             headerRow.className = 'grid grid-cols-4 items-center gap-3 mb-3 text-xs text-gray-400 font-bold uppercase tracking-wider';
-            headerRow.setAttribute('aria-hidden', 'true');
-            headerRow.innerHTML = `<span>Serie</span><span>Reps</span><span>Peso</span><span>RPE</span>`;
+            headerRow.innerHTML = `<span>Serie</span><span>Reps</span><span>Peso (kg)</span><span>RPE</span>`;
             exerciseCard.appendChild(headerRow);
 
-            for (let i = 1; i <= exercise.sets; i++) {
+            const numSets = editable ? exercise.sets : exercise.sets.length;
+
+            for (let i = 1; i <= numSets; i++) {
                 const setRow = document.createElement('div');
                 setRow.className = 'grid grid-cols-4 items-center gap-3 mb-2 set-row';
+                setRow.dataset.setIndex = String(i);
 
-                const setLabel = document.createElement('label');
-                setLabel.htmlFor = `set-${exerciseIndex}-reps-${i}`;
-                setLabel.className = 'font-semibold text-gray-300 sr-only';
+                const setLabel = document.createElement('span');
+                setLabel.className = 'font-semibold text-gray-300';
                 setLabel.textContent = `Serie ${i}`;
+                setRow.appendChild(setLabel);
 
-                const setSpan = document.createElement('span');
-                setSpan.className = 'font-semibold text-gray-300';
-                setSpan.setAttribute('aria-hidden', 'true');
-                setSpan.textContent = `Serie ${i}`;
-
-                const createInput = (type, ariaLabel) => {
-                    const input = document.createElement('input');
-                    input.type = 'number';
-                    input.dataset.type = type;
-                    input.placeholder = '-';
-                    input.className = 'w-full text-center p-2 rounded-lg bg-gray-700 border-2 border-gray-600 text-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent';
-                    input.setAttribute('aria-label', ariaLabel);
-                    if (type === 'rpe') { input.step = '0.5'; input.min = '1'; input.max = '10'; }
-                    if (type === 'reps') { input.id = `set-${exerciseIndex}-reps-${i}`; }
-                    return input;
+                const createCell = (value, type) => {
+                    if (editable && type !== 'text') {
+                        const input = document.createElement('input');
+                        input.type = 'number';
+                        input.dataset.type = type;
+                        input.placeholder = '-';
+                        input.value = value;
+                        input.className = 'w-full text-center p-2 rounded-lg bg-gray-700 border-2 border-gray-600 text-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent';
+                        input.setAttribute('aria-label', `${type} para ${exerciseName} serie ${i}`);
+                        if (type === 'rpe') { input.step = '0.5'; input.min = '1'; input.max = '10'; }
+                        return input;
+                    }
+                    const span = document.createElement('span');
+                    span.className = 'text-center font-medium p-2';
+                    span.textContent = value || '-';
+                    return span;
                 };
 
-                setRow.appendChild(setLabel); setRow.appendChild(setSpan);
-                setRow.appendChild(createInput('reps', `Repeticiones para ${exercise.name} serie ${i}`));
-                setRow.appendChild(createInput('weight', `Peso para ${exercise.name} serie ${i}`));
-                setRow.appendChild(createInput('rpe', `RPE para ${exercise.name} serie ${i}`));
+                const stateKey = `${exerciseName}-${i}`;
+                let repsVal, weightVal, rpeVal;
+
+                if (editable) {
+                    const prefillSet = prefillData?.workoutData
+                        ?.find((e) => e.exerciseName === exerciseName)?.sets
+                        ?.find((s) => s.set === i);
+                    repsVal = currentSessionState[stateKey]?.reps ?? prefillSet?.reps ?? '';
+                    weightVal = currentSessionState[stateKey]?.weight ?? prefillSet?.weight ?? '';
+                    rpeVal = currentSessionState[stateKey]?.rpe ?? prefillSet?.rpe ?? '';
+
+                    setRow.appendChild(createCell(String(repsVal), 'reps'));
+                    setRow.appendChild(createCell(String(weightVal), 'weight'));
+                    setRow.appendChild(createCell(String(rpeVal), 'rpe'));
+                } else {
+                    const historicSet = exercise.sets.find((s) => s.set === i);
+                    repsVal = historicSet?.reps ?? '-';
+                    weightVal = historicSet?.weight ?? '-';
+                    rpeVal = historicSet?.rpe ?? '-';
+
+                    setRow.appendChild(createCell(repsVal, 'text'));
+                    setRow.appendChild(createCell(weightVal, 'text'));
+                    setRow.appendChild(createCell(rpeVal, 'text'));
+                }
+
                 exerciseCard.appendChild(setRow);
             }
             fragment.appendChild(exerciseCard);
         });
-        sessionExercisesContainer.appendChild(fragment);
+
+        sessionContentContainer.appendChild(fragment);
+    };
+
+    const renderWorkoutSession = (routineId) => {
+        const routine = state.routines.find(r => r.id === routineId);
+        if (!routine || !app || !sessionInfo.name || !sessionInfo.date) return;
+
+        currentSessionState = {};
+
+        app.dataset.currentRoutineId = String(routineId);
+        sessionInfo.name.textContent = routine.name;
+        sessionInfo.date.textContent = "Historial y Sesión Actual";
+
+        const sessions = loadSessions(routineId);
+        renderSessionTabs(routineId, sessions);
+
+        if (sessions.length === 0 && sessionContentContainer) {
+            sessionContentContainer.innerHTML = `<div id="empty-history-message"><h4 class="text-lg font-bold mb-2">¡Primera sesión!</h4><p class="text-gray-400">Completa los campos y pulsa "Finalizar y Guardar" para crear tu primer registro histórico.</p></div>`;
+        }
+
+        renderSessionBlock(routine, { editable: true, prefillData: null });
+
         showView('workoutSession');
     };
 
-    // --- CSV Export ---
+    const handleSaveSession = () => {
+        const routineId = Number(app.dataset.currentRoutineId);
+        const routine = state.routines.find(r => r.id === routineId);
+        if (!routine || !sessionContentContainer) return;
+
+        const workoutData = [];
+        let hasReps = false;
+        const exerciseCards = sessionContentContainer.querySelectorAll('[data-exercise-name]');
+
+        exerciseCards.forEach(card => {
+            const exerciseName = card.dataset.exerciseName;
+            const sets = [];
+            card.querySelectorAll('.set-row').forEach(row => {
+                const repsInput = row.querySelector('[data-type="reps"]');
+                const reps = repsInput && repsInput.value ? parseInt(repsInput.value, 10) : null;
+                if (reps !== null && reps > 0) hasReps = true;
+
+                const weightInput = row.querySelector('[data-type="weight"]');
+                const weight = weightInput && weightInput.value ? parseFloat(weightInput.value) : null;
+
+                const rpeInput = row.querySelector('[data-type="rpe"]');
+                const rpe = rpeInput && rpeInput.value ? parseFloat(rpeInput.value) : null;
+
+                if ((repsInput && repsInput.value) || (weightInput && weightInput.value) || (rpeInput && rpeInput.value)) {
+                    sets.push({
+                        set: Number(row.dataset.setIndex),
+                        reps: reps !== null && !isNaN(reps) ? reps : null,
+                        weight: weight !== null && !isNaN(weight) ? weight : null,
+                        rpe: rpe !== null && !isNaN(rpe) ? rpe : null,
+                    });
+                }
+            });
+
+            if (sets.length > 0) workoutData.push({ exerciseName, sets });
+        });
+
+        if (!hasReps) {
+            showConfirmationModal({
+                title: 'Entrenamiento Vacío',
+                message: 'Debes registrar al menos una repetición para guardar la sesión.',
+                confirmText: 'Entendido',
+                confirmClasses: ['bg-yellow-400', 'hover:bg-yellow-300', 'text-gray-900'],
+                onConfirm: () => { }
+            });
+            return;
+        }
+
+        const newSession = {
+            session_id: `sess_${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            routineName: routine.name,
+            workoutData,
+        };
+
+        saveSession(routineId, newSession);
+
+        state.history.push(newSession);
+        saveState();
+
+        showConfirmationModal({
+            title: '¡Guardado!',
+            message: 'Tu sesión se ha guardado correctamente en el historial.',
+            confirmText: 'Genial',
+            confirmClasses: ['bg-yellow-400', 'hover:bg-yellow-300', 'text-gray-900'],
+            onConfirm: () => showView('routines')
+        });
+    };
+
     const exportHistoryToCsv = () => {
         if (state.history.length === 0) {
             showConfirmationModal({
@@ -279,7 +480,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const { date, routineName, workoutData } = entry;
             workoutData.forEach((exercise) => {
                 const { exerciseName, sets } = exercise;
-                sets.forEach(set => {
+                sets.forEach((set) => {
                     const row = [`"${date}"`, `"${routineName}"`, `"${exerciseName}"`, set.set, set.reps ?? '', set.weight ?? '', set.rpe ?? ''];
                     csvContent += row.join(",") + "\r\n";
                 });
@@ -313,22 +514,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!routineNameInput) return;
         let isValid = true;
         routineNameInput.classList.remove('border-red-500');
+
         const name = routineNameInput.value.trim();
         if (!name) {
             routineNameInput.classList.add('border-red-500');
             routineNameInput.focus();
             isValid = false;
         }
+
         const exercises = [];
         const exerciseEntries = document.querySelectorAll('.exercise-entry');
+
         exerciseEntries.forEach(entry => {
             const nameInput = entry.querySelector('.exercise-name-input');
             const setsInput = entry.querySelector('.exercise-sets-input');
+
             if (nameInput && setsInput) {
                 nameInput.classList.remove('border-red-500');
                 setsInput.classList.remove('border-red-500');
+
                 const exName = nameInput.value.trim();
                 const exSets = parseInt(setsInput.value, 10);
+
                 let entryIsValid = true;
                 if (!exName) {
                     nameInput.classList.add('border-red-500');
@@ -398,6 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 confirmClasses: ['bg-red-600', 'hover:bg-red-700'],
                 onConfirm: () => {
                     state.routines = state.routines.filter(r => r.id !== routineId);
+                    localStorage.removeItem(`sessions_${routineId}`);
                     saveState();
                     renderRoutines();
                 }
@@ -415,68 +623,109 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    finishWorkoutBtn?.addEventListener('click', () => {
-        const routineId = Number(app?.dataset.currentRoutineId);
-        const routine = state.routines.find(r => r.id === routineId);
-        if (!routine || !sessionExercisesContainer) return;
+    // REFACTOR: Centralized event listener for session tabs
+    sessionTabsContainer?.addEventListener('click', (e) => {
+        const target = e.target;
+        const routineId = Number(app.dataset.currentRoutineId);
+        if (isNaN(routineId)) return;
 
-        const workoutData = [];
-        const exerciseCards = sessionExercisesContainer.querySelectorAll('[data-exercise-name]');
-        exerciseCards.forEach(card => {
-            const exerciseName = card.dataset.exerciseName;
-            if (!exerciseName) return;
+        const deleteButton = target.closest('.session-tab-delete-btn');
+        const tabButton = target.closest('.session-tab');
 
-            const sets = [];
-            card.querySelectorAll('.set-row').forEach((row, index) => {
-                const reps = row.querySelector('[data-type="reps"]')?.value;
-                const weight = row.querySelector('[data-type="weight"]')?.value;
-                const rpe = row.querySelector('[data-type="rpe"]')?.value;
+        if (deleteButton) {
+            e.stopPropagation(); // Prevent tab selection when clicking delete
+            const sessionId = deleteButton.dataset.sessionId;
+            if (!sessionId) return;
 
-                if (reps || weight || rpe) {
-                    sets.push({
-                        set: index + 1,
-                        reps: reps ? parseInt(reps, 10) : null,
-                        weight: weight ? parseFloat(weight) : null,
-                        rpe: rpe ? parseFloat(rpe) : null,
-                    });
+            showConfirmationModal({
+                title: '¿Eliminar Sesión?',
+                message: 'Se eliminará el historial de este día de forma permanente.',
+                confirmText: 'Sí, Eliminar',
+                confirmClasses: ['bg-red-600', 'hover:bg-red-700'],
+                onConfirm: () => {
+                    deleteSession(routineId, sessionId);
+                    // Re-render the session view to reflect the deletion
+                    renderWorkoutSession(routineId);
                 }
             });
+        } else if (tabButton) {
+            sessionTabsContainer.querySelectorAll('.session-tab').forEach(t => t.setAttribute('aria-selected', 'false'));
+            tabButton.setAttribute('aria-selected', 'true');
 
-            if (sets.length > 0) workoutData.push({ exerciseName, sets });
-        });
+            const sessionId = tabButton.dataset.sessionId;
+            const routine = state.routines.find(r => r.id === routineId);
 
-        if (workoutData.length > 0) {
-            state.history.push({
-                date: new Date().toLocaleDateString('es-ES'),
-                routineName: routine.name,
-                workoutData,
-            });
-            saveState();
+            if (sessionId === 'today') {
+                renderSessionBlock(routine, { editable: true });
+            } else {
+                const sessions = loadSessions(routineId);
+                const historicSession = sessions.find(s => s.session_id === sessionId);
+                renderSessionBlock(historicSession, { editable: false });
+            }
         }
-        showView('routines');
     });
 
+    finishWorkoutBtn?.addEventListener('click', handleSaveSession);
     exportCsvBtn?.addEventListener('click', exportHistoryToCsv);
-
-    // Confirmation Modal Event Listeners
     cancelConfirmationBtn?.addEventListener('click', hideConfirmationModal);
     confirmActionBtn?.addEventListener('click', () => {
         confirmActionCallback?.();
         hideConfirmationModal();
     });
 
+    sessionContentContainer?.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target.matches('input[data-type]')) {
+            const setRow = target.closest('.set-row');
+            const exerciseCard = target.closest('[data-exercise-name]');
+
+            if (setRow && exerciseCard) {
+                const exerciseName = exerciseCard.dataset.exerciseName;
+                const setIndex = setRow.dataset.setIndex;
+                const stateKey = `${exerciseName}-${setIndex}`;
+                const inputType = target.dataset.type;
+
+                if (!currentSessionState[stateKey]) {
+                    currentSessionState[stateKey] = {};
+                }
+                currentSessionState[stateKey][inputType] = target.value;
+            }
+        }
+    });
+
     // --- Initial Load ---
     const handleInitialLoad = () => {
-        loadState();
-        renderRoutines();
-        showView('routines');
-        if (splashScreen) {
-            splashScreen.classList.add('fade-out');
-            setTimeout(() => {
-                if (splashScreen) splashScreen.style.display = 'none';
-            }, 1500);
+        console.log('🚀 Iniciando aplicación...');
+        try {
+            console.log('📦 Cargando estado...');
+            loadState();
+            console.log('🎯 Renderizando rutinas...');
+            renderRoutines();
+            console.log('👀 Mostrando vista de rutinas...');
+            showView('routines');
+            console.log('✅ Aplicación iniciada correctamente');
+        } catch (e) {
+            console.error('❌ Error al iniciar la app:', e);
+            if (document.body && !document.getElementById('fatal-error')) {
+                const errDiv = document.createElement('div');
+                errDiv.id = 'fatal-error';
+                errDiv.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#1a1a1a;color:#fff;z-index:9999;display:flex;align-items:center;justify-content:center;font-size:1.5rem;text-align:center;padding:2rem;';
+                errDiv.innerText = 'Ocurrió un error al iniciar la aplicación. Revisa la consola para más detalles.';
+                document.body.appendChild(errDiv);
+            }
+        } finally {
+            console.log('🌅 Ocultando splash screen...');
+            if (splashScreen) {
+                splashScreen.classList.add('fade-out');
+                setTimeout(() => {
+                    if (splashScreen) splashScreen.style.display = 'none';
+                    console.log('🎭 Splash screen ocultado');
+                }, 500);
+            }
         }
     };
 
+    console.log('🎬 DOM cargado, iniciando app...');
+    // Esperar 1.5 segundos para mostrar el splash, luego iniciar la app
     setTimeout(handleInitialLoad, 1500);
 });
