@@ -6,7 +6,7 @@
 A **lightweight, powerful, and 100% client-side** web application to log and analyze gym workouts.  
 Built with **HTML, Tailwind CSS, and JavaScript ES6+**, it runs entirely in the browser **with no backend**, storing data locally via `localStorage`.
 
-<img src="assets/Gym-Tracker-image.jpg" alt="Gym Tracker Image" width="900">
+<img src="https://github.com/marcemir/gym-tracker/blob/main/assets/Gym-Tracker-%20image.jpg" alt="Gym Tracker Image" width="900">
 *(Real screenshot of the application)*
 
 ---
