@@ -372,8 +372,20 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderWorkoutSession = (routineId) => {
+        console.log('🏋️ Renderizando sesión de entrenamiento para rutina:', routineId);
         const routine = state.routines.find(r => r.id === routineId);
-        if (!routine || !app || !sessionInfo.name || !sessionInfo.date) return;
+        if (!routine) {
+            console.error('❌ No se encontró la rutina con ID:', routineId);
+            return;
+        }
+        if (!app) {
+            console.error('❌ No se encontró el elemento app');
+            return;
+        }
+        if (!sessionInfo.name || !sessionInfo.date) {
+            console.error('❌ No se encontraron elementos sessionInfo');
+            return;
+        }
 
         currentSessionState = {};
 
@@ -390,6 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderSessionBlock(routine, { editable: true, prefillData: null });
 
+        console.log('📱 Cambiando a vista workoutSession');
         showView('workoutSession');
     };
 
@@ -585,19 +598,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     routinesList?.addEventListener('click', e => {
+        console.log('🎯 Click detectado en routinesList');
         const target = e.target;
         const button = target.closest('button');
-        if (!button) return;
+        if (!button) {
+            console.log('❌ No se encontró botón');
+            return;
+        }
 
         const routineIdStr = button.getAttribute('data-routine-id');
-        if (!routineIdStr) return;
+        if (!routineIdStr) {
+            console.log('❌ No se encontró data-routine-id');
+            return;
+        }
         const routineId = Number(routineIdStr);
+        console.log('🆔 Routine ID:', routineId);
 
         if (button.classList.contains('start-workout-btn')) {
+            console.log('▶️ Botón Empezar clickeado');
             renderWorkoutSession(routineId);
         } else if (button.classList.contains('edit-routine-btn')) {
+            console.log('✏️ Botón Editar clickeado');
             openEditRoutineForm(routineId);
         } else if (button.classList.contains('delete-routine-btn')) {
+            console.log('🗑️ Botón Eliminar clickeado');
             showConfirmationModal({
                 title: '¿Eliminar Rutina?',
                 message: 'Esta acción no se puede deshacer y borrará la rutina permanentemente.',
