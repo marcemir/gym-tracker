@@ -22,6 +22,11 @@
         input[type=number] {
           -moz-appearance: textfield;
         }
+        /* Placeholder color for previous-data hints: slightly darker to distinguish from white input text */
+        input::placeholder {
+          color: #4B5563; /* gray-600 */
+          opacity: 1; /* ensure consistent visibility across browsers */
+        }
         .view {
             display: none;
         }

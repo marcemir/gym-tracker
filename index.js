@@ -74,6 +74,9 @@ window.addEventListener('DOMContentLoaded', () => {
   const confirmActionBtn = document.getElementById('confirm-action-btn');
   const cancelConfirmationBtn = document.getElementById('cancel-confirmation-btn');
   let confirmActionCallback = null;
+  // Mostrar/ocultar datos del último entrenamiento bajo demanda
+  let showLastHints = false;
+  let lastSessionMap = {};
 
   // --- State ---
   let state = { routines: [], history: [], activeSession: null };
@@ -254,6 +257,7 @@ window.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+
     exercises.forEach(exercise => {
       const exerciseName = editable ? exercise.name : exercise.exerciseName;
       const card = document.createElement('div');
@@ -266,7 +270,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const header = document.createElement('div');
       header.className = 'grid grid-cols-4 items-center gap-3 mb-3 text-xs text-gray-400 font-bold uppercase tracking-wider';
-      header.innerHTML = `<span>Serie</span><span>Reps</span><span>Peso (kg)</span><span>RPE</span>`;
+      header.innerHTML = `<span>#</span><span>Reps</span><span>Peso (kg)</span><span>RPE</span>`;
       card.appendChild(header);
 
       const numSets = editable ? exercise.sets : exercise.sets.length;
@@ -276,15 +280,15 @@ window.addEventListener('DOMContentLoaded', () => {
         row.dataset.setIndex = String(i);
         const setLabel = document.createElement('span');
         setLabel.className = 'font-semibold text-gray-300';
-        setLabel.textContent = `Serie ${i}`;
+        setLabel.textContent = String(i);
         row.appendChild(setLabel);
 
-        const makeCell = (value, type) => {
+        const makeCell = (value, type, placeholder = '-') => {
           if (editable && type !== 'text') {
             const input = document.createElement('input');
             input.type = 'number';
             input.dataset.type = type;
-            input.placeholder = '-';
+            input.placeholder = placeholder ?? '-';
             input.value = value ?? '';
             input.className = 'w-full text-center p-2 rounded-lg bg-gray-700 border-2 border-gray-600 text-white focus:ring-2 focus:ring-yellow-400 focus:border-transparent';
             input.setAttribute('aria-label', `${type} para ${exerciseName} serie ${i}`);
@@ -300,9 +304,14 @@ window.addEventListener('DOMContentLoaded', () => {
         if (editable) {
           const key = `${exerciseName}-${i}`;
           const prefillSet = prefillData?.[key] || {};
-          row.appendChild(makeCell(prefillSet.reps ?? '', 'reps'));
-          row.appendChild(makeCell(prefillSet.weight ?? '', 'weight'));
-          row.appendChild(makeCell(prefillSet.rpe ?? '', 'rpe'));
+          const last = lastSessionMap[key] || {};
+          // Mostrar últimos valores sólo si el usuario lo solicita (placeholder)
+          const repsPh = showLastHints && last.reps != null ? String(last.reps) : '-';
+          const weightPh = showLastHints && last.weight != null ? String(last.weight) : '-';
+          const rpePh = showLastHints && last.rpe != null ? String(last.rpe) : '-';
+          row.appendChild(makeCell(prefillSet.reps ?? '', 'reps', repsPh));
+          row.appendChild(makeCell(prefillSet.weight ?? '', 'weight', weightPh));
+          row.appendChild(makeCell(prefillSet.rpe ?? '', 'rpe', rpePh));
         } else {
           const hist = exercise.sets.find(s => s.set === i) || {};
           row.appendChild(makeCell(hist.reps ?? '-', 'text'));
@@ -330,6 +339,40 @@ window.addEventListener('DOMContentLoaded', () => {
     app.dataset.currentRoutineId = String(routineId);
     sessionInfo.name.textContent = routine.name;
     sessionInfo.date.textContent = new Date().toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    // Construir mapa de últimos datos para este routineId (una vez)
+    lastSessionMap = {};
+    showLastHints = false; // oculto por defecto
+    const sessions = loadSessions(routineId);
+    const last = sessions && sessions.length > 0 ? sessions[0] : null;
+    if (last && Array.isArray(last.workoutData)) {
+      last.workoutData.forEach(ex => {
+        ex.sets?.forEach(s => {
+          const key = `${ex.exerciseName}-${s.set}`;
+          lastSessionMap[key] = { reps: s.reps ?? null, weight: s.weight ?? null, rpe: s.rpe ?? null };
+        });
+      });
+    }
+    // Renderizar/actualizar botón de alternar datos anteriores
+    const infoContainer = document.getElementById('session-info');
+    if (infoContainer) {
+      let toggleBtn = document.getElementById('toggle-last-data-btn');
+      if (!toggleBtn) {
+        toggleBtn = document.createElement('button');
+        toggleBtn.id = 'toggle-last-data-btn';
+        toggleBtn.className = 'mt-3 inline-flex items-center px-3 py-1.5 text-sm font-semibold rounded-lg border-2 border-gray-600 text-gray-300 hover:border-yellow-400 hover:text-yellow-400 transition-colors';
+        infoContainer.appendChild(toggleBtn);
+      }
+      const setLabel = () => {
+        toggleBtn.textContent = showLastHints ? 'Ocultar datos del último entrenamiento' : 'Ver datos del último entrenamiento';
+      };
+      setLabel();
+      toggleBtn.onclick = () => {
+        showLastHints = !showLastHints;
+        setLabel();
+        // Re-render solo el bloque de inputs respetando el flag
+        renderSessionBlock(routine, { editable: true, prefillData: state.activeSession.sessionData });
+      };
+    }
     renderSessionTabs(routineId);
     renderSessionBlock(routine, { editable: true, prefillData: state.activeSession.sessionData });
     showView('workoutSession');
