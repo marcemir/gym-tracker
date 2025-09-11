@@ -139,7 +139,10 @@
             color: white;
             font-size: 0.9375rem;
             -moz-appearance: textfield;
+            appearance: textfield;
+            -webkit-appearance: textfield;
             transition: all 0.2s ease;
+            margin-top: 4px; /* Add space between label and input */
         }
         
         .exercise-sets-input:focus {
@@ -270,10 +273,12 @@
                         <input type="text" id="routine-name-input" placeholder="Nombre" class="w-full p-4 rounded-lg bg-gray-700 border-2 border-gray-600 focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white text-lg">
                         <div>
                             <h3 class="font-semibold text-lg mb-3">Ejercicios</h3>
-                            <div class="flex items-center space-x-2 text-xs text-gray-400 uppercase font-bold tracking-wider mb-2 px-1">
+                            <div class="flex items-center text-xs text-gray-400 uppercase font-bold tracking-wider mb-2 px-1">
                                 <span class="flex-grow">Ejercicio</span>
-                                <span class="w-20 text-left pl-0">SERIE</span>
-                                <span class="w-8"></span> <!-- Spacer for delete button -->
+                                <div class="w-20 flex flex-col items-center">
+                                    <span>SERIE</span>
+                                </div>
+                                <div class="w-8"></div> <!-- Spacer for delete button -->
                             </div>
                             <div id="exercises-container" class="space-y-3">
                                 <!-- Dynamic exercise inputs will be here -->
