@@ -13,6 +13,15 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        
+        /* Hide default list markers for exercise sets */
+        .set-row {
+            list-style-type: none;
+            counter-increment: none;
+        }
+        .set-row::marker {
+            display: none;
+        }
         /* Hide number input spinners */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { 
@@ -91,6 +100,106 @@
             outline: none;
             box-shadow: 0 0 0 2px #1f2937, 0 0 0 4px #facc15; /* focus ring */
         }
+        
+        /* Exercise Entry Responsive Styles */
+        .exercise-entry {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+        
+        .exercise-name-input {
+            flex: 1;
+            height: 40px;
+            padding: 0 12px;
+            border-radius: 8px;
+            background-color: #374151;
+            border: 1px solid #4B5563;
+            color: white;
+            font-size: 0.9375rem;
+            transition: all 0.2s ease;
+        }
+        
+        .exercise-name-input:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            outline: none;
+        }
+        
+        .exercise-sets-input {
+            width: 60px;
+            height: 40px;
+            text-align: center;
+            padding: 0;
+            border-radius: 8px;
+            background-color: #374151;
+            border: 1px solid #4B5563;
+            color: white;
+            font-size: 0.9375rem;
+            -moz-appearance: textfield;
+            transition: all 0.2s ease;
+        }
+        
+        .exercise-sets-input:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+            outline: none;
+        }
+        
+        .exercise-sets-input::-webkit-outer-spin-button,
+        .exercise-sets-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .remove-exercise-btn {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            margin: 0;
+            background: none;
+            border: none;
+            color: #9CA3AF;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .remove-exercise-btn:hover {
+            color: #EF4444;
+            background: none;
+        }
+        
+        @media (max-width: 640px) {
+            .exercise-entry {
+                flex-wrap: nowrap;
+                gap: 8px;
+            }
+            
+            .exercise-name-input {
+                min-width: 0; /* Allow it to shrink below content size */
+                flex: 1;
+                order: 1;
+            }
+            
+            .exercise-sets-input {
+                order: 2;
+                width: 60px;
+                flex-shrink: 0;
+            }
+            
+            .remove-exercise-btn {
+                order: 3;
+                flex-shrink: 0;
+                margin-left: 0;
+            }
+        }
         /* NEW: Botón de eliminar en la pestaña */
         .session-tab-delete-btn {
             background: none;
@@ -163,7 +272,7 @@
                             <h3 class="font-semibold text-lg mb-3">Ejercicios</h3>
                             <div class="flex items-center space-x-2 text-xs text-gray-400 uppercase font-bold tracking-wider mb-2 px-1">
                                 <span class="flex-grow">Ejercicio</span>
-                                <span class="w-20 text-center">Series</span>
+                                <span class="w-20 text-left pl-0">SERIE</span>
                                 <span class="w-8"></span> <!-- Spacer for delete button -->
                             </div>
                             <div id="exercises-container" class="space-y-3">

@@ -184,11 +184,22 @@ window.addEventListener('DOMContentLoaded', () => {
   const addExerciseInput = (name = '', sets = 4) => {
     if (!exercisesContainer) return;
     const div = document.createElement('div');
-    div.className = 'exercise-entry flex items-center space-x-2';
+    div.className = 'exercise-entry';
     div.innerHTML = `
-      <input type="text" value="${name}" class="exercise-name-input flex-grow p-3 rounded-lg bg-gray-700 border-2 border-gray-600 focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white" placeholder="Nombre del ejercicio" />
-      <input type="number" value="${String(sets)}" min="1" class="exercise-sets-input w-20 text-center p-3 rounded-lg bg-gray-700 border-2 border-gray-600 focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-white" aria-label="Número de series" />
-      <button type="button" class="remove-exercise-btn text-gray-500 hover:text-red-500 p-2 rounded-full transition-colors flex-shrink-0">✖</button>
+      <input type="text" 
+             value="${name}" 
+             class="exercise-name-input" 
+             placeholder="Nombre del ejercicio" />
+      <input type="number" 
+             value="${String(sets)}" 
+             min="1" 
+             class="exercise-sets-input" 
+             aria-label="Número de series" />
+      <button type="button" 
+              class="remove-exercise-btn" 
+              aria-label="Eliminar ejercicio">
+        ✖
+      </button>
     `;
     exercisesContainer.appendChild(div);
   };
@@ -270,7 +281,15 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const header = document.createElement('div');
       header.className = 'grid grid-cols-4 items-center gap-3 mb-3 text-xs text-gray-400 font-bold uppercase tracking-wider';
-      header.innerHTML = `<span>#</span><span>Reps</span><span>Peso (kg)</span><span>RPE</span>`;
+      const headerRow = document.createElement('div');
+      headerRow.className = 'contents';
+      headerRow.innerHTML = `
+        <span class="col-span-1">SERIE</span>
+        <span class="col-span-1">Reps</span>
+        <span class="col-span-1">Peso (kg)</span>
+        <span class="col-span-1">RPE</span>
+      `;
+      header.appendChild(headerRow);
       card.appendChild(header);
 
       const numSets = editable ? exercise.sets : exercise.sets.length;
